@@ -1,65 +1,87 @@
-import Image from "next/image";
+import Link from "next/link";
+import { Show, SignInButton } from "@clerk/nextjs";
+import { Reveal } from "@/components/utils/reveal";
+
+const FEATURES = [
+  {
+    title: "One timer, no stopwatch tab",
+    body: "Start a problem here and it opens on LeetCode or Codeforces in a new tab while the clock runs. Solve it or give up — either way it's recorded.",
+  },
+  {
+    title: "Your times, not a spreadsheet",
+    body: "Every attempt is stored with its duration, so your personal best on a problem is a query, not a cell you forgot to update.",
+  },
+  {
+    title: "Weak spots, found for you",
+    body: "Attempts are tagged by topic, so the dashboard tells you which topics you actually struggle with instead of which ones feel hard.",
+  },
+  {
+    title: "A whiteboard that stays put",
+    body: "Sketch the tree or the pointers right under the problem. It saves itself and it's still there next time you come back.",
+  },
+  {
+    title: "Race a friend",
+    body: "Share a six-character join code, both start on the same problem at the same second, and first to finish takes it.",
+  },
+  {
+    title: "Notes and solutions kept together",
+    body: "Write down the trick while it's fresh and save the code that worked, filed against the problem instead of lost in a gist.",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="mx-auto flex max-w-5xl flex-col gap-20 px-8 py-20">
+      <Reveal className="flex flex-col items-start gap-6" stagger={0.09}>
+        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted">
+          Practice tracker for LeetCode &amp; Codeforces
+        </span>
+
+        <h1 className="max-w-3xl text-4xl leading-[1.05] font-semibold sm:text-6xl">
+          Practice problems with the clock running.
+        </h1>
+
+        <p className="max-w-xl text-lg text-muted">
+          Timing, notes, a whiteboard, topic analytics and head-to-head duels in
+          one place — instead of a problem tab, a stopwatch, a scratch pad and a
+          spreadsheet you stopped updating three weeks ago.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <Show when="signed-in">
+            <Link
+              href="/problems"
+              className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-contrast transition-colors hover:bg-accent-strong"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Go to your problems
+            </Link>
+            <Link
+              href="/dashboard"
+              className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              See your stats
+            </Link>
+          </Show>
+
+          <Show when="signed-out">
+            <span className="rounded-lg bg-accent px-5 py-2.5 text-sm font-medium text-accent-contrast">
+              <SignInButton />
+            </span>
+          </Show>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </Reveal>
+
+      <Reveal className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" stagger={0.05}>
+        {FEATURES.map((feature) => (
+          <div
+            key={feature.title}
+            className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-5 transition-transform hover:-translate-y-0.5"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <h2 className="text-base font-medium">{feature.title}</h2>
+            <p className="text-sm text-muted">{feature.body}</p>
+          </div>
+        ))}
+      </Reveal>
+    </main>
   );
 }

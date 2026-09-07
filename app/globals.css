@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --background: #fbfbfa;
+  --surface: #ffffff;
+  --foreground: #14140f;
+  --muted: #6b6a64;
+  --border: rgba(20, 20, 15, 0.1);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* The accent is deliberately the same blue the charts are drawn in, so the
+     dashboard reads as part of the app rather than a bolted-on widget. Both
+     steps are validated for contrast against the surfaces below. */
+  --accent: #2a78d6;
+  --accent-strong: #1c5cab;
+  --accent-contrast: #ffffff;
+
+  /* Reserved for "a timer is running" — never used as a decorative colour. */
+  --live: #059669;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b0b0c;
+    --surface: #141416;
+    --foreground: #ededea;
+    --muted: #9a9992;
+    --border: rgba(255, 255, 255, 0.12);
+
+    --accent: #3987e5;
+    --accent-strong: #5598e7;
+    --accent-contrast: #08080a;
+
+    --live: #10b981;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-live: var(--live);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono-code);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Previously hardcoded to Arial, which silently overrode the loaded webfont
+     variables — the font stack was never actually applied. */
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+h1,
+h2,
+.font-display {
+  font-family: var(--font-display), var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Motion is opt-out at the source: anything animated by GSAP checks this too,
+   but this catches CSS transitions without per-component work. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

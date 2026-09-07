@@ -1,0 +1,249 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProblemSource {
+  LEETCODE
+  CODEFORCES
+  CUSTOM
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SOLVED
+  GIVEN_UP
+  AUTO_GIVEN_UP
+}
+
+enum DuelStatus {
+  PENDING
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String
+  imageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attempts            Attempt[]
+  notes               Note[]
+  solutions           Solution[]
+  whiteboards         Whiteboard[]
+  whiteboardSnapshots WhiteboardSnapshot[]
+  duelParticipants    DuelParticipant[]
+  library             UserProblem[]
+}
+
+/// Which problems are in a given user's library.
+///
+/// Problem itself is a shared catalogue keyed by (source, externalId), so the
+/// same LeetCode problem is one row for everyone — that dedup is what lets two
+/// people duel on it. This join model is what makes "your problems" actually
+/// yours; without it every user sees every problem anyone ever added.
+model UserProblem {
+  userId    String
+  problemId String
+  addedAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, problemId])
+  @@index([problemId])
+}
+
+model Problem {
+  id         String        @id @default(uuid())
+  source     ProblemSource
+  // Platform-native id/slug, e.g. LeetCode's slug or Codeforces' "1234A".
+  // Nullable + unique-with-source so CUSTOM problems (no external id) are fine too.
+  externalId String?
+  title      String
+  url        String
+  difficulty Difficulty?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  problemTags         ProblemTag[]
+  attempts            Attempt[]
+  notes               Note[]
+  solutions           Solution[]
+  whiteboards         Whiteboard[]
+  whiteboardSnapshots WhiteboardSnapshot[]
+  duels               Duel[]
+  inLibraries         UserProblem[]
+
+  @@unique([source, externalId])
+}
+
+model Tag {
+  id   String @id @default(uuid())
+  name String @unique
+
+  problemTags ProblemTag[]
+}
+
+/// Explicit join table for Problem <-> Tag. Written out rather than using an
+/// implicit many-to-many so the table is visible in the schema and can carry
+/// its own columns.
+model ProblemTag {
+  problemId String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([problemId, tagId])
+  // The composite primary key already covers problem -> tags; this covers the
+  // reverse, "every problem tagged dp", which the topic analytics will need.
+  @@index([tagId])
+}
+
+model Attempt {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  status AttemptStatus @default(IN_PROGRESS)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  // Set once the attempt ends; this is what "least time" queries sort on.
+  durationMs Int?
+  // User's configurable auto-give-up threshold in ms, capped at 1 hour in app logic.
+  timeLimitMs Int?
+
+  createdAt DateTime @default(now())
+
+  solution Solution?
+
+  // Powers: attempts where problemId = X and userId = Y, ordered by durationMs asc.
+  @@index([userId, problemId, durationMs])
+}
+
+model Note {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  content String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, problemId])
+}
+
+model Solution {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Optional link back to the attempt that produced this solution.
+  attemptId String?  @unique
+  attempt   Attempt? @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  code     String
+  language String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, problemId])
+}
+
+model Whiteboard {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  // Excalidraw scene JSON (elements + appState).
+  data Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, problemId])
+}
+
+/// A saved picture of the whiteboard at a moment in time. The live board is a
+/// single mutable scene (Whiteboard); these are the keepsakes you look back at.
+///
+/// Stored as SVG text rather than a PNG: an Excalidraw drawing exports to a few
+/// KB of vector markup, where a base64 PNG would be hundreds of KB per row and
+/// there is no object storage configured to put it in.
+model WhiteboardSnapshot {
+  id        String  @id @default(uuid())
+  userId    String
+  problemId String
+  label     String?
+  svg       String
+
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, problemId, createdAt])
+}
+
+model Duel {
+  id        String  @id @default(uuid())
+  /// Short human-typeable code players share to join, e.g. "K7M2QP".
+  code      String  @unique
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  status DuelStatus @default(PENDING)
+
+  startedAt DateTime?
+  endedAt   DateTime?
+  createdAt DateTime  @default(now())
+
+  participants DuelParticipant[]
+}
+
+model DuelParticipant {
+  id     String @id @default(uuid())
+  duelId String
+  duel   Duel   @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt   DateTime  @default(now())
+  finishedAt DateTime?
+  // 1 = winner, 2 = runner-up, etc. Filled in as each participant finishes.
+  rank       Int?
+
+  @@unique([duelId, userId])
+}
