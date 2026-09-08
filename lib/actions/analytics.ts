@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireCurrentUser } from "@/lib/current-user";
 import { MIN_ATTEMPTS_FOR_SIGNAL } from "@/lib/constants";
-import { AttemptStatus } from "@/generated/prisma/enums";
+import { AttemptStatus, ProblemSource } from "@/generated/prisma/enums";
 
 export type TopicStat = {
   tag: string;
@@ -44,6 +44,25 @@ export type SolvePoint = {
   problemTitle: string;
 };
 
+export type UntaggedProblem = { id: string; title: string };
+
+/**
+ * How this user's own rating lines up with the platform's, per platform level.
+ *
+ * Custom problems are excluded on purpose: their difficulty IS the user's
+ * rating (nothing else rates them), so including them would add a pile of
+ * guaranteed agreements and drag every percentage toward "you agree with the
+ * platform", which would be an artefact of the storage, not a finding.
+ */
+export type RatingComparison = {
+  /** The platform's level. */
+  difficulty: string;
+  rated: number;
+  harder: number;
+  same: number;
+  easier: number;
+};
+
 export type Analytics = {
   totalAttempts: number;
   problemsAttempted: number;
@@ -56,6 +75,15 @@ export type Analytics = {
   topics: TopicStat[];
   /** Topics seen but still below the signal threshold. */
   lowDataTopics: string[];
+  ratingComparison: RatingComparison[];
+  /** Solved problems with no rating yet, so the panel can say what is missing. */
+  unratedSolved: number;
+  /**
+   * Problems in the library carrying no topics at all. These are invisible to
+   * every figure above, so the dashboard says so rather than quietly reporting
+   * a topic breakdown computed over an unknown fraction of the work.
+   */
+  untaggedProblems: UntaggedProblem[];
   solvedProblems: SolvedProblem[];
   activity: DayActivity[];
   difficulties: DifficultyStat[];
@@ -82,6 +110,34 @@ export async function getAnalytics(): Promise<Analytics> {
       problem: { include: { problemTags: { include: { tag: true } } } },
     },
     orderBy: { startedAt: "desc" },
+  });
+
+  // The user's own difficulty ratings, next to the platform's. Custom problems
+  // are filtered out here rather than later: for those two the values are the
+  // same row by construction.
+  const ratings = await prisma.userProblem.findMany({
+    where: {
+      userId: user.id,
+      perceivedDifficulty: { not: null },
+      problem: { source: { not: ProblemSource.CUSTOM } },
+    },
+    select: {
+      problemId: true,
+      perceivedDifficulty: true,
+      problem: { select: { difficulty: true } },
+    },
+  });
+
+  // Problems the platform could not describe. Cheap query, and the number is
+  // the difference between trusting the topic breakdown and not.
+  const untaggedProblems = await prisma.problem.findMany({
+    where: {
+      inLibraries: { some: { userId: user.id } },
+      problemTags: { none: {} },
+    },
+    select: { id: true, title: true },
+    orderBy: { createdAt: "desc" },
+    take: 20,
   });
 
   const solvedAttempts = attempts.filter(
@@ -172,6 +228,20 @@ export async function getAnalytics(): Promise<Analytics> {
     existing.bestMs = Math.min(existing.bestMs, attempt.durationMs);
   }
 
+  // Solved problems the user has never rated. Custom problems are excluded
+  // from `ratings` above, so they are counted from their own column instead.
+  const ratedProblemIds = new Set(ratings.map((rating) => rating.problemId));
+  const unratedSolved = [...byProblem.keys()].filter((problemId) => {
+    if (ratedProblemIds.has(problemId)) return false;
+    // A custom problem carries its rating on the problem row too, so a
+    // difficulty there means it has been rated.
+    const attempt = solvedAttempts.find((entry) => entry.problemId === problemId);
+    return !(
+      attempt?.problem.source === ProblemSource.CUSTOM &&
+      attempt.problem.difficulty !== null
+    );
+  }).length;
+
   // --- difficulty rollup ----------------------------------------------------
   const difficultyTotals = new Map<string, { attempts: number; solved: number }>();
 
@@ -195,6 +265,41 @@ export async function getAnalytics(): Promise<Analytics> {
       solveRate: totals.solved / totals.attempts,
     };
   });
+
+  // --- rating comparison ----------------------------------------------------
+  // Difficulty is ordinal, so "harder" is a comparison of positions on the
+  // scale, not of labels.
+  const RANK: Record<string, number> = { EASY: 1, MEDIUM: 2, HARD: 3 };
+
+  const comparisonTotals = new Map<
+    string,
+    { rated: number; harder: number; same: number; easier: number }
+  >();
+
+  for (const rating of ratings) {
+    const platform = rating.problem.difficulty;
+    const mine = rating.perceivedDifficulty;
+    if (!platform || !mine) continue;
+
+    const totals = comparisonTotals.get(platform) ?? {
+      rated: 0,
+      harder: 0,
+      same: 0,
+      easier: 0,
+    };
+
+    totals.rated += 1;
+    const delta = RANK[mine] - RANK[platform];
+    if (delta > 0) totals.harder += 1;
+    else if (delta < 0) totals.easier += 1;
+    else totals.same += 1;
+
+    comparisonTotals.set(platform, totals);
+  }
+
+  const ratingComparison: RatingComparison[] = DIFFICULTY_ORDER.filter(
+    (level) => comparisonTotals.has(level)
+  ).map((level) => ({ difficulty: level, ...comparisonTotals.get(level)! }));
 
   // --- solve-time trend -----------------------------------------------------
   // solvedAttempts is newest-first; take the recent slice, then flip it so the
@@ -243,6 +348,9 @@ export async function getAnalytics(): Promise<Analytics> {
       : null,
     topics,
     lowDataTopics,
+    ratingComparison,
+    unratedSolved,
+    untaggedProblems,
     solvedProblems: [...byProblem.values()].sort((a, b) =>
       b.lastSolvedAt.localeCompare(a.lastSolvedAt)
     ),

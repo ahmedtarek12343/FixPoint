@@ -24,7 +24,7 @@ export type Page<T> = {
 export function normalizePageArgs({ page, pageSize }: PageArgs = {}) {
   const safeSize = Math.min(
     Math.max(Math.trunc(pageSize ?? DEFAULT_PAGE_SIZE), 1),
-    MAX_PAGE_SIZE
+    MAX_PAGE_SIZE,
   );
   const safePage = Math.max(Math.trunc(page ?? 1), 1);
 
@@ -40,7 +40,7 @@ export function toPage<T>(
   items: T[],
   total: number,
   page: number,
-  pageSize: number
+  pageSize: number,
 ): Page<T> {
   return {
     items,

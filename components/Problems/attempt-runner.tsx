@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Play, Check, X, ArrowSquareOut } from "@phosphor-icons/react";
 import { formatDuration, parseHoursMinutesToMs } from "@/lib/format";
 import {
   CUSTOM_TIME_LIMIT,
@@ -9,6 +10,10 @@ import {
 } from "@/lib/constants";
 import { useEndAttempt, useStartAttempt } from "@/hooks/use-attempts";
 import type { AttemptDto } from "@/lib/actions/attempts";
+import { Button, buttonStyles } from "@/components/ui/button";
+import { Panel } from "@/components/ui/surface";
+import { Field, inputStyles } from "@/components/ui/field";
+import { ErrorNote } from "@/components/ui/feedback";
 
 type Props = {
   problemId: string;
@@ -16,6 +21,11 @@ type Props = {
   activeAttempt: AttemptDto | null;
 };
 
+/**
+ * The running clock is the loudest thing on the page by design: it is the one
+ * number the user is here for, so it gets display scale, the accent colour and
+ * a raised surface, and everything else on the page steps back while it runs.
+ */
 export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
   const [selectedLimit, setSelectedLimit] = useState(0);
   const [customLimit, setCustomLimit] = useState("");
@@ -29,8 +39,8 @@ export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
     ? new Date(activeAttempt.startedAt).getTime()
     : null;
 
-  // The clock is pure client state — it's derived from the server's startedAt
-  // and never written anywhere. The authoritative duration is recomputed
+  // The clock is pure client state: derived from the server's startedAt and
+  // never written anywhere. The authoritative duration is recomputed
   // server-side when the attempt ends.
   useEffect(() => {
     if (startedAtMs === null) return;
@@ -58,9 +68,9 @@ export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
     let customError: string | null = null;
     if (isCustom && customLimit.trim()) {
       if (parsedCustom === null) {
-        customError = "Use h:mm — for example 0:45.";
+        customError = "Use h:mm, for example 0:45.";
       } else if (parsedCustom > MAX_TIME_LIMIT_MS) {
-        customError = `Maximum is ${formatDuration(MAX_TIME_LIMIT_MS)}.`;
+        customError = `The maximum is ${formatDuration(MAX_TIME_LIMIT_MS)}.`;
       }
     }
 
@@ -71,39 +81,53 @@ export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
       !isCustom || (parsedCustom !== null && parsedCustom <= MAX_TIME_LIMIT_MS);
 
     return (
-      <div className="flex flex-col gap-4 rounded-lg border border-black/10 p-5 dark:border-white/15">
-        <div className="flex flex-wrap items-center gap-2">
-          <label htmlFor="time-limit" className="text-sm opacity-70">
-            Give up automatically after
-          </label>
-          <select
-            id="time-limit"
-            value={selectedLimit}
-            onChange={(event) => setSelectedLimit(Number(event.target.value))}
-            className="rounded-md border border-black/15 px-2 py-1 text-sm dark:border-white/20"
+      <Panel className="flex flex-col gap-6 p-6 sm:p-7">
+        <div className="flex flex-wrap items-end gap-4">
+          <Field
+            label="Give up automatically after"
+            htmlFor="time-limit"
+            hint="Capped at one hour. Nothing past that is practice."
+            className="w-56"
           >
-            {TIME_LIMIT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <select
+              id="time-limit"
+              value={selectedLimit}
+              onChange={(event) => setSelectedLimit(Number(event.target.value))}
+              className={inputStyles}
+            >
+              {TIME_LIMIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-          {isCustom ? (
-            <input
-              value={customLimit}
-              onChange={(event) => setCustomLimit(event.target.value)}
-              placeholder="0:45"
-              inputMode="numeric"
-              aria-label="Custom time limit in hours and minutes"
-              className="w-20 rounded-md border border-black/15 px-2 py-1 text-sm tabular-nums dark:border-white/20"
-            />
-          ) : null}
+          {isCustom && (
+            <Field
+              label="How long"
+              htmlFor="custom-limit"
+              error={customError}
+              className="w-32"
+            >
+              <input
+                id="custom-limit"
+                value={customLimit}
+                onChange={(event) => setCustomLimit(event.target.value)}
+                placeholder="0:45"
+                inputMode="numeric"
+                aria-invalid={customError ? true : undefined}
+                aria-describedby={
+                  customError ? "custom-limit-error" : undefined
+                }
+                data-numeric
+                className={`${inputStyles} font-mono`}
+              />
+            </Field>
+          )}
         </div>
 
-        {customError ? (
-          <p className="text-sm text-red-600 dark:text-red-400">{customError}</p>
-        ) : null}
+        {start.isError && <ErrorNote>{start.error.message}</ErrorNote>}
 
         {/* A real anchor rather than window.open: the click itself opens the
             tab, so popup blockers stay out of it while the mutation runs. */}
@@ -119,13 +143,16 @@ export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
             }
             start.mutate(limitToStart);
           }}
-          className={`inline-flex w-fit items-center gap-2 rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 ${
-            canStart ? "" : "pointer-events-none opacity-50"
-          }`}
+          className={buttonStyles({
+            size: "lg",
+            className: `w-fit ${canStart ? "" : "pointer-events-none opacity-45"}`,
+          })}
         >
-          Start solving ↗
+          <Play size={18} weight="fill" />
+          Start solving
+          <ArrowSquareOut size={16} />
         </a>
-      </div>
+      </Panel>
     );
   }
 
@@ -133,56 +160,66 @@ export function AttemptRunner({ problemId, problemUrl, activeAttempt }: Props) {
     ? activeAttempt.timeLimitMs - elapsedMs
     : null;
   const isPending = start.isPending || end.isPending;
+  const nearlyOut = remainingMs !== null && remainingMs < 60_000;
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-emerald-600/40 bg-emerald-600/5 p-5">
-      <div className="flex flex-wrap items-baseline gap-4">
-        <span className="font-mono text-4xl tabular-nums">
+    <Panel tone="live" className="flex flex-col gap-6 p-6 sm:p-7">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-2">
+        <p
+          data-numeric
+          role="timer"
+          aria-live="off"
+          className="font-mono text-6xl leading-none font-medium text-accent sm:text-7xl"
+        >
           {formatDuration(elapsedMs)}
-        </span>
-        {remainingMs !== null ? (
-          <span
-            className={`text-sm ${
-              remainingMs < 60_000
-                ? "text-red-600 dark:text-red-400"
-                : "opacity-70"
-            }`}
+        </p>
+
+        {remainingMs !== null && (
+          <p
+            data-numeric
+            className={`text-sm ${nearlyOut ? "font-medium text-danger" : "text-muted"}`}
           >
             {formatDuration(Math.max(0, remainingMs))} left
-          </span>
-        ) : null}
+          </p>
+        )}
       </div>
 
+      {end.isError && <ErrorNote>{end.error.message}</ErrorNote>}
+
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
+        <Button
+          size="lg"
           disabled={isPending}
           onClick={() =>
             end.mutate({ attemptId: activeAttempt.id, outcome: "SOLVED" })
           }
-          className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
+          <Check size={18} weight="bold" />
           Solved it
-        </button>
-        <button
-          type="button"
+        </Button>
+
+        <Button
+          variant="secondary"
+          size="lg"
           disabled={isPending}
           onClick={() =>
             end.mutate({ attemptId: activeAttempt.id, outcome: "GIVEN_UP" })
           }
-          className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10"
         >
+          <X size={18} weight="bold" />
           Give up
-        </button>
+        </Button>
+
         <a
           href={problemUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md px-4 py-2 text-sm underline underline-offset-4 opacity-70 hover:opacity-100"
+          className={buttonStyles({ variant: "ghost", size: "lg" })}
         >
-          Reopen problem ↗
+          Reopen problem
+          <ArrowSquareOut size={16} />
         </a>
       </div>
-    </div>
+    </Panel>
   );
 }

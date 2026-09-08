@@ -1,17 +1,18 @@
 "use client";
 
 import { useForm } from "@tanstack/react-form";
-import {
-  useAddSolution,
-  useDeleteSolution,
-  useProblemSolutions,
-} from "@/hooks/use-solutions";
+import { FloppyDisk } from "@phosphor-icons/react";
+import { useAddSolution, useProblemSolutions } from "@/hooks/use-solutions";
+import { SolutionCard } from "@/components/Solutions/solution-card";
 import { LANGUAGES, MAX_SOLUTION_LENGTH } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
+import { Section } from "@/components/ui/surface";
+import { Field, inputStyles } from "@/components/ui/field";
+import { ErrorNote } from "@/components/ui/feedback";
 
 export function SolutionsPanel({ problemId }: { problemId: string }) {
   const { data: solutions } = useProblemSolutions(problemId);
   const add = useAddSolution(problemId);
-  const remove = useDeleteSolution();
 
   const form = useForm({
     defaultValues: { code: "", language: LANGUAGES[0] as string },
@@ -22,55 +23,64 @@ export function SolutionsPanel({ problemId }: { problemId: string }) {
   });
 
   return (
-    <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Solutions</h2>
-
+    <Section title="Solutions">
       <form
         onSubmit={(event) => {
           event.preventDefault();
           event.stopPropagation();
           void form.handleSubmit();
         }}
-        className="flex flex-col gap-2"
+        className="flex flex-col gap-4"
       >
         <form.Field
           name="code"
           validators={{
+            // onMount as well as onChange. A field that has only ever been
+            // empty has never fired an onChange, so the form reported
+            // canSubmit: true and the Save button was live over an empty
+            // textarea until the first keystroke.
+            onMount: ({ value }) =>
+              value.trim() ? undefined : "Paste your solution first.",
             onChange: ({ value }) =>
               value.trim() ? undefined : "Paste your solution first.",
           }}
         >
           {(field) => (
-            <textarea
-              name={field.name}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              maxLength={MAX_SOLUTION_LENGTH}
-              rows={8}
-              spellCheck={false}
-              placeholder="Paste the code that worked…"
-              className="w-full rounded-md border border-black/15 px-3 py-2 font-mono text-sm dark:border-white/20"
-            />
+            <Field label="Code" htmlFor="solution-code">
+              <textarea
+                id="solution-code"
+                name={field.name}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+                maxLength={MAX_SOLUTION_LENGTH}
+                rows={8}
+                spellCheck={false}
+                placeholder="Paste the code that worked"
+                className={`${inputStyles} font-mono`}
+              />
+            </Field>
           )}
         </form.Field>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-end gap-4">
           <form.Field name="language">
             {(field) => (
-              <select
-                name={field.name}
-                value={field.state.value}
-                onChange={(event) => field.handleChange(event.target.value)}
-                aria-label="Language"
-                className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-              >
-                {LANGUAGES.map((language) => (
-                  <option key={language} value={language}>
-                    {language}
-                  </option>
-                ))}
-              </select>
+              <Field label="Language" htmlFor="solution-language" className="w-44">
+                <select
+                  id="solution-language"
+                  name={field.name}
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  className={inputStyles}
+                >
+                  {LANGUAGES.map((language) => (
+                    <option key={language} value={language}>
+                      {language}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             )}
           </form.Field>
 
@@ -78,61 +88,30 @@ export function SolutionsPanel({ problemId }: { problemId: string }) {
             selector={(state) => [state.canSubmit, state.isSubmitting] as const}
           >
             {([canSubmit, isSubmitting]) => (
-              <button
-                type="submit"
-                disabled={!canSubmit || isSubmitting}
-                className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-              >
-                {isSubmitting ? "Saving…" : "Save solution"}
-              </button>
+              <Button type="submit" disabled={!canSubmit || isSubmitting}>
+                <FloppyDisk size={16} weight="bold" />
+                {isSubmitting ? "Saving" : "Save solution"}
+              </Button>
             )}
           </form.Subscribe>
-
-          {add.isError ? (
-            <span className="text-sm text-red-600 dark:text-red-400">
-              {add.error.message}
-            </span>
-          ) : null}
         </div>
+
+        {add.isError && <ErrorNote>{add.error.message}</ErrorNote>}
       </form>
 
       {solutions.length === 0 ? (
-        <p className="text-sm opacity-70">No solutions saved yet.</p>
+        <p className="text-sm text-muted">
+          Nothing saved for this problem yet.
+        </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {solutions.map((solution) => (
-            <li
-              key={solution.id}
-              className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/10"
-            >
-              <div className="flex items-center justify-between gap-3 text-xs opacity-60">
-                <span>
-                  <span className="rounded-full border border-black/10 px-2 py-0.5 dark:border-white/20">
-                    {solution.language}
-                  </span>
-                  <span className="ml-2">
-                    {new Date(solution.createdAt).toLocaleString()}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  disabled={remove.isPending}
-                  onClick={() => remove.mutate(solution.id)}
-                  className="underline underline-offset-4 hover:opacity-100"
-                >
-                  Delete
-                </button>
-              </div>
-
-              {/* overflow-x-auto so a long line scrolls inside the block
-                  instead of stretching the page. */}
-              <pre className="overflow-x-auto rounded-md bg-black/5 p-3 text-xs dark:bg-white/10">
-                <code>{solution.code}</code>
-              </pre>
+            <li key={solution.id}>
+              <SolutionCard solution={solution} />
             </li>
           ))}
         </ul>
       )}
-    </section>
+    </Section>
   );
 }

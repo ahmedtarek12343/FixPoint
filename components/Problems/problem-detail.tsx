@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeft, ArrowSquareOut } from "@phosphor-icons/react";
 import { useProblemDetail } from "@/hooks/use-attempts";
 import { formatDuration } from "@/lib/format";
 import { AttemptRunner } from "./attempt-runner";
@@ -8,52 +9,94 @@ import { NotesPanel } from "./notes-panel";
 import { SolutionsPanel } from "./solutions-panel";
 import { WhiteboardPanel } from "./whiteboard-panel";
 import { SnapshotGallery } from "./snapshot-gallery";
-import type { AttemptStatus } from "@/generated/prisma/enums";
-
-const STATUS_LABELS: Record<AttemptStatus, string> = {
-  IN_PROGRESS: "In progress",
-  SOLVED: "Solved",
-  GIVEN_UP: "Gave up",
-  AUTO_GIVEN_UP: "Timed out",
-};
+import { Section } from "@/components/ui/surface";
+import { DifficultyMeter, StatusChip } from "@/components/ui/chip";
+import {
+  AfterAttemptDialog,
+  ProblemMetaRow,
+  useAfterAttemptPrompt,
+} from "./after-attempt";
+import { StatRow, StatTile } from "@/components/Dashboard/stat-tile";
 
 export function ProblemDetail({ problemId }: { problemId: string }) {
   const { data: problem } = useProblemDetail(problemId);
 
+  // Asks for topics and for the user's own difficulty rating, once, at the
+  // moment an attempt ends. See after-attempt.tsx for why that is the right
+  // moment and why neither question belongs in the add form.
+  const prompt = useAfterAttemptPrompt({
+    problemId,
+    tagCount: problem?.tags.length ?? 0,
+    hasRating: Boolean(problem?.yourDifficulty),
+    activeAttempt: problem?.activeAttempt ?? null,
+    // attempts come back newest first, so [0] is the one that just ended.
+    lastStatus: problem?.attempts[0]?.status ?? null,
+  });
+
   // The server component already 404s on a missing problem; this only covers
-  // the case where it's deleted while the page is open.
+  // the case where it is deleted while the page is open.
   if (!problem) {
-    return <p className="opacity-70">This problem no longer exists.</p>;
+    return <p className="text-muted">This problem no longer exists.</p>;
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-12">
+      <header className="flex flex-col gap-4">
+        {/* Every page needs a way back. */}
         <Link
           href="/problems"
-          className="text-sm underline underline-offset-4 opacity-60 hover:opacity-100"
+          className="flex w-fit items-center gap-1.5 text-sm text-muted transition-colors hover:text-foreground"
         >
-          ← All problems
+          <ArrowLeft size={15} />
+          All problems
         </Link>
-        <h1 className="text-3xl font-semibold">{problem.title}</h1>
-        <div className="flex flex-wrap items-center gap-2 text-sm opacity-70">
-          <span>{problem.source.toLowerCase()}</span>
-          {problem.difficulty ? (
-            <>
-              <span>·</span>
-              <span>{problem.difficulty.toLowerCase()}</span>
-            </>
-          ) : null}
-          {problem.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full border border-black/10 px-2 py-0.5 text-xs dark:border-white/20"
-            >
-              {tag}
-            </span>
-          ))}
+
+        <h1 className="text-3xl font-semibold sm:text-4xl">{problem.title}</h1>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <DifficultyMeter difficulty={problem.difficulty} />
+          <span className="text-sm text-muted">
+            {problem.platform === "LEETCODE"
+              ? "leetcode"
+              : problem.platform === "CODEFORCES"
+                ? "codeforces"
+                : problem.platform}
+          </span>
+          <a
+            href={problem.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-sm text-accent transition-opacity hover:opacity-80"
+          >
+            Open the problem
+            <ArrowSquareOut size={14} />
+          </a>
         </div>
-      </div>
+
+        <ProblemMetaRow
+          problemId={problem.id}
+          source={problem.source}
+          platformDifficulty={problem.difficulty}
+          title={problem.title}
+          platformTitle={problem.platformTitle}
+          platformLabel={problem.platformLabel}
+          tags={problem.tags}
+          yourDifficulty={problem.yourDifficulty}
+        />
+      </header>
+
+      <AfterAttemptDialog
+        problemId={problem.id}
+        source={problem.source}
+        platformDifficulty={problem.difficulty}
+        initialTags={problem.tags}
+        initialDifficulty={problem.yourDifficulty}
+        askTopics={prompt.asking?.topics ?? false}
+        askDifficulty={prompt.asking?.difficulty ?? false}
+        open={prompt.asking !== null}
+        onClose={prompt.close}
+        onSkip={prompt.skip}
+      />
 
       <AttemptRunner
         problemId={problem.id}
@@ -61,63 +104,66 @@ export function ProblemDetail({ problemId }: { problemId: string }) {
         activeAttempt={problem.activeAttempt}
       />
 
-      <section className="grid grid-cols-3 gap-4">
-        <Stat
+      <StatRow>
+        <StatTile
           label="Best time"
-          value={problem.bestMs === null ? "—" : formatDuration(problem.bestMs)}
+          value={
+            problem.bestMs === null ? "None yet" : formatDuration(problem.bestMs)
+          }
         />
-        <Stat label="Attempts" value={String(problem.attempts.length)} />
-        <Stat label="Solved" value={String(problem.solvedCount)} />
-      </section>
+        <StatTile label="Attempts" value={String(problem.attempts.length)} />
+        <StatTile label="Solved" value={String(problem.solvedCount)} />
+        <StatTile
+          label="Solve rate"
+          value={
+            problem.attempts.length === 0
+              ? "None yet"
+              : `${Math.round((problem.solvedCount / problem.attempts.length) * 100)}%`
+          }
+        />
+      </StatRow>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">History</h2>
+      <Section title="History">
         {problem.attempts.length === 0 ? (
-          <p className="text-sm opacity-70">No attempts yet.</p>
+          <p className="text-sm text-muted">
+            No attempts yet. Start the clock above.
+          </p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-black/10 dark:border-white/15">
-              <tr className="opacity-60">
-                <th className="py-2 pr-4 font-medium">Started</th>
-                <th className="py-2 pr-4 font-medium">Result</th>
-                <th className="py-2 font-medium">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {problem.attempts.map((attempt) => (
-                <tr
-                  key={attempt.id}
-                  className="border-b border-black/5 dark:border-white/10"
-                >
-                  <td className="py-2 pr-4">
-                    {new Date(attempt.startedAt).toLocaleString()}
-                  </td>
-                  <td className="py-2 pr-4">{STATUS_LABELS[attempt.status]}</td>
-                  <td className="py-2 font-mono tabular-nums">
+          <ul className="flex flex-col divide-y divide-border">
+            {problem.attempts.map((attempt) => (
+              <li
+                key={attempt.id}
+                className="flex flex-wrap items-center justify-between gap-4 py-3"
+              >
+                <span data-numeric className="text-sm text-muted">
+                  {new Date(attempt.startedAt).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-4">
+                  <StatusChip status={attempt.status} />
+                  <span
+                    data-numeric
+                    className={`w-20 text-right font-mono text-sm ${
+                      attempt.durationMs !== null &&
+                      attempt.durationMs === problem.bestMs
+                        ? "text-accent"
+                        : ""
+                    }`}
+                  >
                     {attempt.durationMs === null
-                      ? "—"
+                      ? "not timed"
                       : formatDuration(attempt.durationMs)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
-      </section>
+      </Section>
 
       <WhiteboardPanel problemId={problem.id} />
       <SnapshotGallery problemId={problem.id} />
       <NotesPanel problemId={problem.id} />
       <SolutionsPanel problemId={problem.id} />
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-black/10 p-4 dark:border-white/15">
-      <div className="text-xs uppercase tracking-wide opacity-60">{label}</div>
-      <div className="mt-1 font-mono text-2xl tabular-nums">{value}</div>
     </div>
   );
 }

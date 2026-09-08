@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { Code } from "@phosphor-icons/react";
 import { useUserSolutions } from "@/hooks/use-solutions";
 import { Pagination } from "@/components/utils/pagination";
+import { EmptyState } from "@/components/ui/feedback";
+import { SolutionCard } from "./solution-card";
 
 export function SolutionsList() {
   const [page, setPage] = useState(1);
@@ -14,38 +16,27 @@ export function SolutionsList() {
 
   if (data.items.length === 0) {
     return (
-      <p className="opacity-70">
-        No solutions saved yet — save the code that worked and it shows up here.
-      </p>
+      <EmptyState
+        icon={<Code size={22} />}
+        title="No solutions saved"
+        body="Save the code that actually worked, in the language you wrote it in. It is filed against the problem, so you can compare it with the next attempt."
+      />
     );
   }
 
   return (
-    <div className={`flex flex-col gap-4 ${isPending ? "opacity-60" : ""}`}>
+    <div
+      className={`flex flex-col gap-6 transition-opacity duration-200 ${
+        isPending ? "opacity-60" : ""
+      }`}
+    >
       <ul className="flex flex-col gap-3">
         {data.items.map((solution) => (
-          <li
-            key={solution.id}
-            className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/10"
-          >
-            <div className="flex items-center justify-between gap-3 text-xs opacity-60">
-              <span>
-                <Link
-                  href={`/problems/${solution.problemId}`}
-                  className="underline underline-offset-4"
-                >
-                  {solution.problemTitle}
-                </Link>
-                <span className="ml-2 rounded-full border border-black/10 px-2 py-0.5 dark:border-white/20">
-                  {solution.language}
-                </span>
-              </span>
-              <span>{new Date(solution.createdAt).toLocaleDateString()}</span>
-            </div>
-
-            <pre className="overflow-x-auto rounded-md bg-black/5 p-3 text-xs dark:bg-white/10">
-              <code>{solution.code}</code>
-            </pre>
+          <li key={solution.id}>
+            <SolutionCard
+              solution={solution}
+              problemHref={`/problems/${solution.problemId}`}
+            />
           </li>
         ))}
       </ul>

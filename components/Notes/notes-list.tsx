@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { NotePencil } from "@phosphor-icons/react";
 import { useUserNotes } from "@/hooks/use-notes";
 import { Pagination } from "@/components/utils/pagination";
+import { EmptyState } from "@/components/ui/feedback";
+import { NoteCard } from "./note-card";
 
 export function NotesList() {
   const [page, setPage] = useState(1);
@@ -14,30 +16,28 @@ export function NotesList() {
 
   if (data.items.length === 0) {
     return (
-      <p className="opacity-70">
-        No notes yet — open a problem and write down what tripped you up.
-      </p>
+      <EmptyState
+        icon={<NotePencil size={22} />}
+        title="Nothing written down yet"
+        body="Open a problem and write down what tripped you up while it is still fresh. It will be waiting the next time you come back to it."
+      />
     );
   }
 
   return (
-    <div className={`flex flex-col gap-4 ${isPending ? "opacity-60" : ""}`}>
+    <div
+      className={`flex flex-col gap-6 transition-opacity duration-200 ${
+        isPending ? "opacity-60" : ""
+      }`}
+    >
+      {/* Cards rather than a divided list. A note is something the user wrote,
+          and it should look like an object on the page rather than more body
+          copy. Editing and deleting live on the card itself, so this page is a
+          real view of your notes and not a read-only mirror of them. */}
       <ul className="flex flex-col gap-3">
         {data.items.map((note) => (
-          <li
-            key={note.id}
-            className="flex flex-col gap-2 rounded-lg border border-black/10 p-4 dark:border-white/10"
-          >
-            <div className="flex items-center justify-between gap-3 text-xs opacity-60">
-              <Link
-                href={`/problems/${note.problemId}`}
-                className="underline underline-offset-4"
-              >
-                {note.problemTitle}
-              </Link>
-              <span>{new Date(note.createdAt).toLocaleDateString()}</span>
-            </div>
-            <p className="whitespace-pre-wrap text-sm">{note.content}</p>
+          <li key={note.id}>
+            <NoteCard note={note} problemHref={`/problems/${note.problemId}`} />
           </li>
         ))}
       </ul>

@@ -1,5 +1,8 @@
 "use client";
 
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { Button } from "@/components/ui/button";
+
 /**
  * Page controls for any paginated list.
  *
@@ -22,34 +25,36 @@ export function Pagination({
 }) {
   if (pageCount <= 1) return null;
 
-  const buttonClass =
-    "rounded-md border border-black/15 px-3 py-1.5 text-sm disabled:opacity-40 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10";
-
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-sm opacity-60">
+    <nav
+      aria-label="Pagination"
+      className="flex items-center justify-between gap-4 border-t border-border pt-4"
+    >
+      <p data-numeric className="text-sm text-muted">
         Page {page} of {pageCount}
-        <span className="ml-2 tabular-nums">({total} total)</span>
-      </span>
+        <span className="ml-2">({total} total)</span>
+      </p>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className={buttonClass}
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={page <= 1 || isPending}
           onClick={() => onPageChange(page - 1)}
         >
-          ← Prev
-        </button>
-        <button
-          type="button"
-          className={buttonClass}
+          <CaretLeft size={14} weight="bold" />
+          Previous
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={page >= pageCount || isPending}
           onClick={() => onPageChange(page + 1)}
         >
-          Next →
-        </button>
+          Next
+          <CaretRight size={14} weight="bold" />
+        </Button>
       </div>
-    </div>
+    </nav>
   );
 }

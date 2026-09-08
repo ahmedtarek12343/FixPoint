@@ -67,6 +67,26 @@ model UserProblem {
   problemId String
   addedAt   DateTime @default(now())
 
+  /// How hard this problem felt to THIS user, which is a different fact from
+  /// Problem.difficulty (what the platform rates it). LeetCode calling
+  /// something Medium says nothing about whether you found it medium, and the
+  /// gap between the two is the interesting number: it is what tells you that
+  /// you are consistently finding graph Mediums harder than the rating implies.
+  ///
+  /// Lives here rather than on Attempt because it is a standing opinion about
+  /// the problem, not an observation about one sitting, and it has to be
+  /// editable later without inventing an attempt to hang it on.
+  perceivedDifficulty Difficulty?
+
+  /// A name this user gave the problem, shown instead of Problem.title.
+  ///
+  /// Same reasoning as perceivedDifficulty: for a LeetCode or Codeforces
+  /// problem the catalogue row is shared, so one person renaming "Two Sum" to
+  /// "the hashmap one" must not rename it for everybody. The override lives
+  /// here; the official title stays untouched. For a CUSTOM problem the row is
+  /// private, so the rename is written straight through to Problem.title too.
+  customTitle String?
+
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   problem Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
 
@@ -83,6 +103,13 @@ model Problem {
   title      String
   url        String
   difficulty Difficulty?
+
+  /// Where a CUSTOM problem actually came from, e.g. "HackerRank", "AtCoder",
+  /// "CSES". Null for LeetCode and Codeforces, whose platform is the source
+  /// enum. Without it every non-supported site collapses into one "custom"
+  /// bucket, which makes filtering by platform useless the moment someone
+  /// practises anywhere else.
+  platformLabel String?
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 

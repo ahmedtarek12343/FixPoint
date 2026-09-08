@@ -1,7 +1,5 @@
-import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { SignInButton } from "@clerk/nextjs";
 import { getCurrentUser } from "@/lib/current-user";
 import { getQueryClient } from "@/lib/query-client";
 import { problemDetailQueryOptions } from "@/lib/queries/attempts";
@@ -9,6 +7,9 @@ import { problemNotesQueryOptions } from "@/lib/queries/notes";
 import { problemSolutionsQueryOptions } from "@/lib/queries/solutions";
 import { snapshotsQueryOptions } from "@/lib/queries/snapshots";
 import { ProblemDetail } from "@/components/Problems/problem-detail";
+import { PageShell, SignedOutGate } from "@/components/ui/page";
+import { SkeletonLine, SkeletonRows } from "@/components/ui/feedback";
+import { QueryBoundary } from "@/components/ui/query-boundary";
 
 export default async function ProblemIdPage({
   params,
@@ -20,15 +21,15 @@ export default async function ProblemIdPage({
 
   if (!user) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-4 p-8">
-        <p className="opacity-70">Sign in to start the timer on this problem.</p>
-        <SignInButton />
-      </main>
+      <SignedOutGate
+        title="Start the timer"
+        body="Sign in to time this problem, keep notes on it, and save the solution that worked."
+      />
     );
   }
 
   const queryClient = getQueryClient();
-  // Three reads, but they run in parallel here on the server — the sequential
+  // Four reads, but they run in parallel here on the server. The sequential
   // dispatch that applies to Server Actions is a client-side dispatcher rule,
   // not a server one. The detail call does double duty: it warms the cache and
   // tells us whether the problem exists at all.
@@ -41,12 +42,21 @@ export default async function ProblemIdPage({
   if (!problem) notFound();
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-8">
+    <PageShell>
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense fallback={<p className="opacity-70">Loading…</p>}>
+        <QueryBoundary
+          label="This problem"
+          fallback={
+            <div className="flex flex-col gap-8">
+              <SkeletonLine className="h-10 w-2/3 max-w-md" />
+              <div className="skeleton h-40 rounded-panel" />
+              <SkeletonRows rows={3} />
+            </div>
+          }
+        >
           <ProblemDetail problemId={id} />
-        </Suspense>
+        </QueryBoundary>
       </HydrationBoundary>
-    </main>
+    </PageShell>
   );
 }

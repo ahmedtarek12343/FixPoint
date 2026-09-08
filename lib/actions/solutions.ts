@@ -137,3 +137,42 @@ export async function deleteSolution(id: string) {
 
   return { id };
 }
+
+/**
+ * Edits a saved solution.
+ *
+ * The missing letter in the CRUD: you could write a solution and delete it, but
+ * fixing a typo meant deleting and retyping the whole thing, which also threw
+ * away the original timestamp.
+ *
+ * Scoped by userId in the WHERE rather than fetched and then checked, so an id
+ * alone can never reach someone else's row.
+ */
+export async function updateSolution(input: {
+  id: string;
+  code: string;
+  language: string;
+}) {
+  const user = await requireUserForWrite();
+
+  const code = input.code.trim();
+  if (!code) throw new Error("A solution needs some code.");
+  if (code.length > MAX_SOLUTION_LENGTH) {
+    throw new Error(
+      `Solutions are limited to ${MAX_SOLUTION_LENGTH} characters.`
+    );
+  }
+
+  // A select is UI, not a boundary.
+  const language = (LANGUAGES as readonly string[]).includes(input.language)
+    ? input.language
+    : "Other";
+
+  const { count } = await prisma.solution.updateMany({
+    where: { id: input.id, userId: user.id },
+    data: { code, language },
+  });
+  if (count === 0) throw new Error("Solution not found");
+
+  return { id: input.id };
+}

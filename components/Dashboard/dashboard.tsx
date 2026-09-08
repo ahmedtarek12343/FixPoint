@@ -1,36 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import { ChartLineUp, ArrowRight } from "@phosphor-icons/react";
 import { useAnalytics } from "@/hooks/use-analytics";
 import { formatDuration } from "@/lib/format";
-import { StatTile } from "./stat-tile";
+import { StatRow, StatTile } from "./stat-tile";
 import { TopicBars } from "./topic-bars";
 import { ActivityStrip } from "./activity-strip";
 import { SolveTrend } from "./solve-trend";
 import { DifficultyBars } from "./difficulty-bars";
+import { RatingComparisonBars } from "./rating-comparison";
+import { Section } from "@/components/ui/surface";
+import { EmptyState } from "@/components/ui/feedback";
+import { DifficultyMeter } from "@/components/ui/chip";
+import { buttonStyles } from "@/components/ui/button";
 
 export function Dashboard() {
   const { data } = useAnalytics();
 
   if (data.totalAttempts === 0) {
     return (
-      <div className="flex flex-col gap-3">
-        <p className="opacity-70">
-          Nothing to show yet — finish an attempt and your stats appear here.
-        </p>
-        <Link
-          href="/problems"
-          className="w-fit rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background"
-        >
-          Go solve something
-        </Link>
-      </div>
+      <EmptyState
+        icon={<ChartLineUp size={22} />}
+        title="Nothing measured yet"
+        body="Finish one attempt and this fills in: your solve rate, your fastest times, and which topics you actually get through."
+        action={
+          <Link href="/problems" className={buttonStyles()}>
+            Go solve something
+            <ArrowRight size={16} weight="bold" />
+          </Link>
+        }
+      />
     );
   }
 
   return (
-    <div className="flex flex-col gap-10">
-      <section className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+    <div className="flex flex-col gap-14">
+      <StatRow>
         <StatTile
           label="Problems solved"
           value={String(data.problemsSolved)}
@@ -47,77 +53,107 @@ export function Dashboard() {
           hint="across all attempts"
         />
         <StatTile
-          label="Avg time to solve"
-          value={data.avgSolveMs === null ? "—" : formatDuration(data.avgSolveMs)}
+          label="Average solve"
+          value={
+            data.avgSolveMs === null ? "None yet" : formatDuration(data.avgSolveMs)
+          }
           hint="solved attempts only"
         />
-      </section>
+      </StatRow>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Time to solve</h2>
+      <Section
+        title="Time to solve"
+        description="Your last solved attempts, oldest on the left."
+      >
         <SolveTrend points={data.solveTrend} />
-      </section>
+      </Section>
 
-      <div className="grid gap-10 sm:grid-cols-2">
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold">Topics</h2>
-          <TopicBars topics={data.topics} lowDataTopics={data.lowDataTopics} />
-        </section>
+      <div className="grid gap-14 lg:grid-cols-2 lg:gap-12">
+        <Section
+          title="Topics"
+          description="Ranked by how often you finish, not how often you start."
+        >
+          <TopicBars
+            topics={data.topics}
+            lowDataTopics={data.lowDataTopics}
+            untaggedProblems={data.untaggedProblems}
+          />
+        </Section>
 
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold">By difficulty</h2>
+        <Section title="By difficulty">
           <DifficultyBars difficulties={data.difficulties} />
-        </section>
+        </Section>
       </div>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Last 14 days</h2>
-        <ActivityStrip activity={data.activity} />
-      </section>
+      <Section
+        title="Your rating against theirs"
+        description="How hard problems felt to you, next to what the platform calls them. Custom problems are left out: they only have your rating."
+      >
+        <RatingComparisonBars
+          comparison={data.ratingComparison}
+          unratedSolved={data.unratedSolved}
+        />
+      </Section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Solved problems</h2>
+      <Section title="Last 14 days">
+        <ActivityStrip activity={data.activity} />
+      </Section>
+
+      <Section title="Solved problems">
         {data.solvedProblems.length === 0 ? (
-          <p className="text-sm text-[#898781]">Nothing solved yet.</p>
+          <p className="text-sm text-muted">Nothing solved yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-black/10 dark:border-white/10">
-                <tr className="text-[#898781]">
-                  <th className="py-2 pr-4 font-medium">Problem</th>
-                  <th className="py-2 pr-4 font-medium">Difficulty</th>
-                  <th className="py-2 pr-4 font-medium">Times solved</th>
-                  <th className="py-2 pr-4 font-medium">Best time</th>
-                  <th className="py-2 font-medium">Last solved</th>
+            <table className="w-full min-w-[38rem] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-muted">
+                  <th scope="col" className="py-2.5 pr-4 font-medium">
+                    Problem
+                  </th>
+                  <th scope="col" className="py-2.5 pr-4 font-medium">
+                    Difficulty
+                  </th>
+                  <th scope="col" className="py-2.5 pr-4 text-right font-medium">
+                    Solved
+                  </th>
+                  <th scope="col" className="py-2.5 pr-4 text-right font-medium">
+                    Best
+                  </th>
+                  <th scope="col" className="py-2.5 text-right font-medium">
+                    Last
+                  </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border">
                 {data.solvedProblems.map((problem) => (
                   <tr
                     key={problem.id}
-                    className="border-b border-black/5 dark:border-white/10"
+                    className="transition-colors hover:bg-surface"
                   >
-                    <td className="py-2 pr-4">
+                    <td className="py-3 pr-4">
                       <Link
                         href={`/problems/${problem.id}`}
-                        className="underline underline-offset-4"
+                        className="font-medium transition-colors hover:text-accent"
                       >
                         {problem.title}
                       </Link>
-                      <span className="ml-2 text-xs text-[#898781]">
+                      <span className="ml-2 text-xs text-muted">
                         {problem.source.toLowerCase()}
                       </span>
                     </td>
-                    <td className="py-2 pr-4">
-                      {problem.difficulty?.toLowerCase() ?? "—"}
+                    <td className="py-3 pr-4">
+                      <DifficultyMeter difficulty={problem.difficulty} />
                     </td>
-                    <td className="py-2 pr-4 tabular-nums">
+                    <td data-numeric className="py-3 pr-4 text-right">
                       {problem.solvedCount}
                     </td>
-                    <td className="py-2 pr-4 tabular-nums">
+                    <td
+                      data-numeric
+                      className="py-3 pr-4 text-right font-mono text-accent"
+                    >
                       {formatDuration(problem.bestMs)}
                     </td>
-                    <td className="py-2 tabular-nums">
+                    <td data-numeric className="py-3 text-right text-muted">
                       {new Date(problem.lastSolvedAt).toLocaleDateString()}
                     </td>
                   </tr>
@@ -126,7 +162,7 @@ export function Dashboard() {
             </table>
           </div>
         )}
-      </section>
+      </Section>
     </div>
   );
 }

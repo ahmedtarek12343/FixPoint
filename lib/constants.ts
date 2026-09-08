@@ -27,6 +27,9 @@ export const LANGUAGES = [
   "Other",
 ] as const;
 
+export const MAX_TITLE_LENGTH = 160;
+/** Free-text platform name for a custom problem, e.g. "HackerRank". */
+export const MAX_PLATFORM_LABEL_LENGTH = 40;
 export const MAX_NOTE_LENGTH = 5000;
 /** ~1MB of SVG text. A normal Excalidraw sketch is a few KB; this is a guard
  *  against a pathological drawing, not a target. */

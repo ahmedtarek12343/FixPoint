@@ -2,6 +2,12 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import {
+  CornersIn,
+  CornersOut,
+  PencilSimpleLine,
+} from "@phosphor-icons/react";
+import { buttonStyles } from "@/components/ui/button";
 import { useSaveWhiteboard, useWhiteboard } from "@/hooks/use-whiteboard";
 import { useCreateSnapshot } from "@/hooks/use-snapshots";
 import type { WhiteboardScene } from "@/lib/actions/whiteboard";
@@ -115,7 +121,7 @@ function WhiteboardEditor({
         className={
           fullscreen
             ? "min-h-0 flex-1 overflow-hidden"
-            : "h-[32rem] min-h-[16rem] resize-y overflow-hidden rounded-xl border border-border"
+            : "h-[32rem] min-h-[16rem] resize-y overflow-hidden rounded-panel border border-border"
         }
       >
         <Excalidraw
@@ -140,7 +146,7 @@ function WhiteboardEditor({
           type="button"
           disabled={!api || snapshot.isPending}
           onClick={takeSnapshot}
-          className="rounded-md border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface disabled:opacity-50"
+          className="rounded-control border border-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-surface disabled:opacity-50"
         >
           {snapshot.isPending ? "Saving snapshot…" : "Snapshot"}
         </button>
@@ -148,12 +154,12 @@ function WhiteboardEditor({
         <span>{status}</span>
 
         {save.isError ? (
-          <span className="text-red-600 dark:text-red-400">
+          <span className="text-danger">
             {save.error.message}
           </span>
         ) : null}
         {snapshot.isError ? (
-          <span className="text-red-600 dark:text-red-400">
+          <span className="text-danger">
             {snapshot.error.message}
           </span>
         ) : null}
@@ -204,17 +210,19 @@ export function WhiteboardPanel({
     };
   }, [fullscreen]);
 
-  const buttonClass =
-    "rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-surface";
+  const buttonClass = buttonStyles({ variant: "secondary", size: "sm" });
 
   return (
     <section
+      // The scale in globals.css owns every layer in this app; nothing invents
+      // its own z value.
+      style={fullscreen ? { zIndex: "var(--z-overlay)" } : undefined}
       // Fullscreen is a class swap on the same element, NOT a portal or a
       // different branch of the tree: moving the editor would unmount it and
       // throw away the undo stack and current viewport.
       className={
         fullscreen
-          ? "fixed inset-0 z-50 flex flex-col gap-3 bg-background p-4"
+          ? "fixed inset-0 flex flex-col gap-3 bg-background p-4"
           : "flex flex-col gap-3"
       }
     >
@@ -228,6 +236,7 @@ export function WhiteboardPanel({
               onClick={() => setMode("docked")}
               className={buttonClass}
             >
+              <PencilSimpleLine size={15} />
               Open whiteboard
             </button>
           ) : null}
@@ -239,6 +248,7 @@ export function WhiteboardPanel({
                 onClick={() => setMode("fullscreen")}
                 className={buttonClass}
               >
+                <CornersOut size={15} />
                 Fullscreen
               </button>
               <button
@@ -259,6 +269,7 @@ export function WhiteboardPanel({
                 onClick={() => setMode("docked")}
                 className={buttonClass}
               >
+                <CornersIn size={15} />
                 Minimise (Esc)
               </button>
               <button
@@ -276,13 +287,13 @@ export function WhiteboardPanel({
       {open ? (
         // Its own boundary so loading the board never blanks the page around it.
         <Suspense
-          fallback={<p className="text-sm text-muted">Loading whiteboard…</p>}
+          fallback={<div className="skeleton h-72 rounded-panel" />}
         >
           <WhiteboardEditor problemId={problemId} fullscreen={fullscreen} />
         </Suspense>
       ) : (
         <p className="text-sm text-muted">
-          Sketch the tree, the pointers, the state machine — it saves itself and
+          Sketch the tree, the pointers, the state machine. It saves itself and
           is here next time. Drag the bottom edge to resize, or go fullscreen.
         </p>
       )}

@@ -1,22 +1,26 @@
-import { Suspense } from "react";
 import Link from "next/link";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { SignInButton } from "@clerk/nextjs";
+import { DownloadSimple, ArrowRight } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/current-user";
 import { getQueryClient } from "@/lib/query-client";
 import { analyticsQueryOptions } from "@/lib/queries/analytics";
 import { Dashboard } from "@/components/Dashboard/dashboard";
+import { PageHeader, PageShell, SignedOutGate } from "@/components/ui/page";
+import { SkeletonStats } from "@/components/ui/feedback";
+import { QueryBoundary } from "@/components/ui/query-boundary";
+import { buttonStyles } from "@/components/ui/button";
+
+export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
   if (!user) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-4 p-8">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="opacity-70">Sign in to see your stats.</p>
-        <SignInButton />
-      </main>
+      <SignedOutGate
+        title="Dashboard"
+        body="Your solve rate, your fastest times, and the topics you actually struggle with rather than the ones that feel hard."
+      />
     );
   }
 
@@ -24,39 +28,44 @@ export default async function DashboardPage() {
   await queryClient.query(analyticsQueryOptions());
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-8 p-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Plain links: Content-Disposition on the response triggers the
-              download, so no client-side JS is involved. */}
-          <a
-            href="/api/export/problems"
-            className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-surface"
-          >
-            Export problems (CSV)
-          </a>
-          <a
-            href="/api/export/attempts"
-            className="rounded-md border border-border px-3 py-1.5 text-sm transition-colors hover:bg-surface"
-          >
-            Export attempts (CSV)
-          </a>
-          <Link
-            href="/problems"
-            className="text-sm underline underline-offset-4 text-muted hover:text-foreground"
-          >
-            Problems →
-          </Link>
-        </div>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Dashboard"
+        description="Finished attempts only. Anything still running is left out so it cannot drag a rate down."
+        actions={
+          <>
+            {/* Plain anchors: Content-Disposition on the response triggers the
+                download, so no client-side JavaScript is involved. */}
+            <a
+              href="/api/export/problems"
+              className={buttonStyles({ variant: "secondary", size: "sm" })}
+            >
+              <DownloadSimple size={16} />
+              Problems CSV
+            </a>
+            <a
+              href="/api/export/attempts"
+              className={buttonStyles({ variant: "secondary", size: "sm" })}
+            >
+              <DownloadSimple size={16} />
+              Attempts CSV
+            </a>
+            <Link
+              href="/problems"
+              className={buttonStyles({ variant: "ghost", size: "sm" })}
+            >
+              Problems
+              <ArrowRight size={16} />
+            </Link>
+          </>
+        }
+      />
 
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense fallback={<p className="opacity-70">Loading stats…</p>}>
+        <QueryBoundary label="Your stats" fallback={<SkeletonStats />}>
           <Dashboard />
-        </Suspense>
+        </QueryBoundary>
       </HydrationBoundary>
-    </main>
+    </PageShell>
   );
 }

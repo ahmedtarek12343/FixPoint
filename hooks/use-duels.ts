@@ -15,6 +15,7 @@ import {
   duelQueryOptions,
 } from "@/lib/queries/duels";
 import { problemKeys } from "@/lib/queries/problems";
+import { useToast } from "@/components/ui/toast";
 
 export function useDuel(duelId: string) {
   return useSuspenseQuery(duelQueryOptions(duelId));
@@ -77,10 +78,20 @@ export function useStartDuel(duelId: string) {
 
 export function useFinishDuel(duelId: string) {
   const queryClient = useQueryClient();
+  const { success } = useToast();
 
   return useMutation({
     mutationFn: () => finishDuel(duelId),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: duelKeys.detail(duelId) }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: duelKeys.detail(duelId) });
+      // The rank comes back from the server transaction, which is the only
+      // place that can decide it. Saying it immediately beats waiting up to
+      // two seconds for the next poll to reveal it.
+      if (result) {
+        success(
+          result.rank === 1 ? "First in. Nice." : "Position " + result.rank
+        );
+      }
+    },
   });
 }

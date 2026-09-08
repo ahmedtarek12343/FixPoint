@@ -25,7 +25,7 @@ export type DuelHistoryItem = {
 };
 
 export async function listDuels(
-  args: PageArgs = {}
+  args: PageArgs = {},
 ): Promise<Page<DuelHistoryItem>> {
   const user = await requireCurrentUser();
   const { page, pageSize, skip, take } = normalizePageArgs(args);
@@ -57,8 +57,7 @@ export async function listDuels(
     endedAt: duel.endedAt?.toISOString() ?? null,
     problemId: duel.problem.id,
     problemTitle: duel.problem.title,
-    yourRank:
-      duel.participants.find((p) => p.userId === user.id)?.rank ?? null,
+    yourRank: duel.participants.find((p) => p.userId === user.id)?.rank ?? null,
     opponents: duel.participants
       .filter((p) => p.userId !== user.id)
       .map((p) => ({ name: p.user.name || "Anonymous", rank: p.rank })),
@@ -75,7 +74,7 @@ function generateCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH));
   return Array.from(
     bytes,
-    (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]
+    (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length],
   ).join("");
 }
 
@@ -145,7 +144,7 @@ export async function joinDuel(rawCode: string) {
   // Rejoining your own duel is fine; joining someone else's after it started
   // is not — you'd be racing from behind.
   const alreadyIn = duel.participants.some(
-    (participant) => participant.userId === user.id
+    (participant) => participant.userId === user.id,
   );
   if (alreadyIn) return { id: duel.id };
 

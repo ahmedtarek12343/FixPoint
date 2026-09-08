@@ -23,7 +23,7 @@ export function SnapshotGallery({ problemId }: { problemId: string }) {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Snapshots</h2>
         <p className="text-sm text-muted">
-          No snapshots yet — open the whiteboard, draw something, then hit
+          No snapshots yet. Open the whiteboard, draw something, then hit
           Snapshot to keep a copy of it here.
         </p>
       </section>
@@ -43,12 +43,12 @@ export function SnapshotGallery({ problemId }: { problemId: string }) {
         {snapshots.map((snapshot) => (
           <li
             key={snapshot.id}
-            className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-3"
+            className="flex flex-col gap-2 rounded-panel border border-border bg-surface p-3"
           >
             <button
               type="button"
               onClick={() => setPreview(snapshot.svg)}
-              className="overflow-hidden rounded-lg border border-border bg-white"
+              className="overflow-hidden rounded-control border border-border bg-paper transition-colors hover:border-border-strong"
               aria-label={`Enlarge snapshot from ${new Date(snapshot.createdAt).toLocaleString()}`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element -- a data: URL can't go through next/image */}
@@ -83,13 +83,14 @@ export function SnapshotGallery({ problemId }: { problemId: string }) {
           aria-modal="true"
           aria-label="Snapshot preview"
           onClick={() => setPreview(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-8"
+          style={{ zIndex: "var(--z-overlay)" }}
+          className="fixed inset-0 flex items-center justify-center bg-scrim p-8 backdrop-blur-sm"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- data: URL */}
           <img
             src={svgDataUrl(preview)}
             alt="Whiteboard snapshot"
-            className="max-h-full max-w-full rounded-lg bg-white"
+            className="max-h-full max-w-full rounded-panel bg-paper shadow-lg"
           />
         </div>
       ) : null}

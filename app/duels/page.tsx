@@ -1,28 +1,31 @@
-import { Suspense } from "react";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { SignInButton } from "@clerk/nextjs";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
 import { getQueryClient } from "@/lib/query-client";
 import { duelHistoryQueryOptions } from "@/lib/queries/duels";
 import { DuelLobby } from "@/components/Duels/duel-lobby";
 import { DuelHistory } from "@/components/Duels/duel-history";
+import { PageHeader, PageShell, SignedOutGate } from "@/components/ui/page";
+import { Section } from "@/components/ui/surface";
+import { SkeletonRows } from "@/components/ui/feedback";
+import { QueryBoundary } from "@/components/ui/query-boundary";
+
+export const metadata = { title: "Duels" };
 
 export default async function DuelsPage() {
   const user = await getCurrentUser();
 
   if (!user) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-4 p-8">
-        <h1 className="text-2xl font-semibold">Duels</h1>
-        <p className="opacity-70">Sign in to duel someone.</p>
-        <SignInButton />
-      </main>
+      <SignedOutGate
+        title="Duels"
+        body="Share a six-character code and race someone on the same problem. Both clocks start on the same second."
+      />
     );
   }
 
   // Plain props rather than a query: this list only fills a <select> and never
-  // changes while the page is open, so it doesn't need a cache entry.
+  // changes while the page is open, so it does not need a cache entry.
   const problems = await prisma.problem.findMany({
     where: { inLibraries: { some: { userId: user.id } } },
     orderBy: { createdAt: "desc" },
@@ -33,19 +36,21 @@ export default async function DuelsPage() {
   await queryClient.query(duelHistoryQueryOptions(1));
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-10 p-8">
-      <h1 className="text-2xl font-semibold">Duels</h1>
+    <PageShell>
+      <PageHeader
+        title="Duels"
+        description="Host a race on a problem in your library, or join one with a code."
+      />
 
       <DuelLobby problems={problems} />
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">History</h2>
+      <Section title="History">
         <HydrationBoundary state={dehydrate(queryClient)}>
-          <Suspense fallback={<p className="opacity-70">Loading duels…</p>}>
+          <QueryBoundary label="Duel history" fallback={<SkeletonRows rows={3} />}>
             <DuelHistory />
-          </Suspense>
+          </QueryBoundary>
         </HydrationBoundary>
-      </section>
-    </main>
+      </Section>
+    </PageShell>
   );
 }

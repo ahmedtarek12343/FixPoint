@@ -31,6 +31,7 @@ type ProblemRow = {
   title: string;
   source: string;
   difficulty: string | null;
+  yourDifficulty: string | null;
   url: string;
   tags: string;
   attempts: number;
@@ -50,6 +51,11 @@ export async function exportProblemsCsv(userId: string): Promise<string> {
         where: { userId },
         select: { status: true, durationMs: true, startedAt: true },
       },
+      // Scoped to this user: the row holds their private difficulty rating.
+      inLibraries: {
+        where: { userId },
+        select: { perceivedDifficulty: true },
+      },
     },
   });
 
@@ -65,6 +71,7 @@ export async function exportProblemsCsv(userId: string): Promise<string> {
       title: problem.title,
       source: problem.source,
       difficulty: problem.difficulty,
+      yourDifficulty: problem.inLibraries[0]?.perceivedDifficulty ?? null,
       url: problem.url,
       tags: problem.problemTags.map((pt) => pt.tag.name).join("; "),
       attempts: problem.attempts.length,
@@ -88,6 +95,10 @@ export async function exportProblemsCsv(userId: string): Promise<string> {
     { header: "Problem", value: (row) => row.title },
     { header: "Source", value: (row) => row.source },
     { header: "Difficulty", value: (row) => row.difficulty ?? "Unrated" },
+    // Two difficulty columns on purpose: the platform's and yours. Comparing
+    // them is the whole reason the rating is collected, and a spreadsheet is
+    // where people will want to pivot on it.
+    { header: "Your difficulty", value: (row) => row.yourDifficulty ?? "" },
     { header: "Topics", value: (row) => row.tags },
     { header: "Attempts", value: (row) => row.attempts },
     { header: "Solved", value: (row) => row.solved },

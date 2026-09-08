@@ -1,8 +1,13 @@
 "use client";
 
 import { useForm } from "@tanstack/react-form";
+import { Plus } from "@phosphor-icons/react";
 import { useAddProblem } from "@/hooks/use-problems";
 import type { AddProblemInput } from "@/lib/actions/problems";
+import { Button } from "@/components/ui/button";
+import { Collapsible } from "@/components/ui/collapsible";
+import { Field, inputStyles } from "@/components/ui/field";
+import { ErrorNote } from "@/components/ui/feedback";
 
 /** Validators can hand back strings or objects depending on the source. */
 function errorText(error: unknown) {
@@ -12,9 +17,6 @@ function errorText(error: unknown) {
   }
   return String(error);
 }
-
-const inputClass =
-  "rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20";
 
 export function AddProblemForm() {
   const addProblem = useAddProblem();
@@ -33,102 +35,136 @@ export function AddProblemForm() {
   });
 
   return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        void form.handleSubmit();
-      }}
-      className="flex flex-col gap-3"
+    // Collapsed by default. The form is five controls tall and you only use it
+    // when adding something, so on every other visit it was pushing the list
+    // you actually came for below the fold.
+    <Collapsible
+      id="add-problem"
+      summary={
+        <span className="flex flex-col gap-0.5">
+          <span className="font-medium">Add a problem</span>
+          <span className="text-sm text-muted">
+            Paste a LeetCode or Codeforces link
+          </span>
+        </span>
+      }
     >
-      <form.Field
-        name="url"
-        validators={{
-          onChange: ({ value }) =>
-            value.trim() ? undefined : "Paste a problem URL.",
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          void form.handleSubmit();
         }}
+        className="flex flex-col gap-5 border-t border-border p-6 sm:p-7"
       >
-        {(field) => (
-          <div className="flex flex-col gap-1">
-            <input
-              name={field.name}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              placeholder="https://leetcode.com/problems/two-sum/"
-              className={inputClass}
-            />
-            {field.state.meta.isTouched && field.state.meta.errors.length > 0 ? (
-              <p className="text-sm text-red-600 dark:text-red-400">
-                {errorText(field.state.meta.errors[0])}
-              </p>
-            ) : null}
-          </div>
-        )}
-      </form.Field>
+        <form.Field
+          name="url"
+          validators={{
+            onChange: ({ value }) =>
+              value.trim() ? undefined : "Paste a problem URL.",
+          }}
+        >
+          {(field) => {
+            const error =
+              field.state.meta.isTouched && field.state.meta.errors.length > 0
+                ? errorText(field.state.meta.errors[0])
+                : null;
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <form.Field name="title">
-          {(field) => (
-            <input
-              name={field.name}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              placeholder="Title (optional — guessed from the URL)"
-              className={`flex-1 ${inputClass}`}
-            />
-          )}
+            return (
+              <Field
+                label="Problem link"
+                htmlFor="problem-url"
+                hint="A LeetCode or Codeforces URL. Anything else is saved as a custom problem."
+                error={error}
+              >
+                <input
+                  id="problem-url"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  placeholder="https://leetcode.com/problems/two-sum/"
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "problem-url-error" : undefined}
+                  className={inputStyles}
+                />
+              </Field>
+            );
+          }}
         </form.Field>
 
-        <form.Field name="difficulty">
-          {(field) => (
-            <select
-              name={field.name}
-              value={field.state.value}
-              onBlur={field.handleBlur}
-              onChange={(event) => field.handleChange(event.target.value)}
-              className={inputClass}
+        {/* Everything below is optional: it is only there to override what the
+            source platform already tells us. */}
+        <div className="grid gap-5 sm:grid-cols-[1fr_10rem]">
+          <form.Field name="title">
+            {(field) => (
+              <Field
+                label="Title"
+                htmlFor="problem-title"
+                hint="Leave blank to use the real one."
+              >
+                <input
+                  id="problem-title"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  className={inputStyles}
+                />
+              </Field>
+            )}
+          </form.Field>
+
+          <form.Field name="difficulty">
+            {(field) => (
+              <Field
+                label="Difficulty"
+                htmlFor="problem-difficulty"
+                hint="Usually fetched."
+              >
+                <select
+                  id="problem-difficulty"
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  className={inputStyles}
+                >
+                  <option value="">Fetch it</option>
+                  <option value="EASY">Easy</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HARD">Hard</option>
+                </select>
+              </Field>
+            )}
+          </form.Field>
+        </div>
+
+        {/* No topics field. You have not read the problem yet, so you do not
+            know whether it is a graph problem; asking here got shrugs and empty
+            values. LeetCode and Codeforces supply topics on their own, and for
+            anything else the app asks once, after the first attempt, when you
+            actually know the answer. See components/Problems/tag-prompt.tsx. */}
+
+        {addProblem.isError && (
+          <ErrorNote>{addProblem.error.message}</ErrorNote>
+        )}
+
+        <form.Subscribe
+          selector={(state) => [state.canSubmit, state.isSubmitting] as const}
+        >
+          {([canSubmit, isSubmitting]) => (
+            <Button
+              type="submit"
+              className="w-fit"
+              disabled={!canSubmit || isSubmitting}
             >
-              <option value="">Difficulty…</option>
-              <option value="EASY">Easy</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="HARD">Hard</option>
-            </select>
+              <Plus size={16} weight="bold" />
+              {isSubmitting ? "Adding" : "Add problem"}
+            </Button>
           )}
-        </form.Field>
-      </div>
-
-      <form.Field name="tags">
-        {(field) => (
-          <input
-            name={field.name}
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(event) => field.handleChange(event.target.value)}
-            placeholder="Topics, comma separated (dp, graphs, two pointers)"
-            className={inputClass}
-          />
-        )}
-      </form.Field>
-
-      {addProblem.isError ? (
-        <p className="text-sm text-red-600 dark:text-red-400">
-          {addProblem.error.message}
-        </p>
-      ) : null}
-
-      <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
-        {([canSubmit, isSubmitting]) => (
-          <button
-            type="submit"
-            disabled={!canSubmit || isSubmitting}
-            className="w-fit rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
-          >
-            {isSubmitting ? "Adding…" : "Add problem"}
-          </button>
-        )}
-      </form.Subscribe>
-    </form>
+        </form.Subscribe>
+      </form>
+    </Collapsible>
   );
 }

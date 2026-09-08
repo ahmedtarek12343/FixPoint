@@ -1,21 +1,23 @@
-import { Suspense } from "react";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
-import { SignInButton } from "@clerk/nextjs";
 import { getCurrentUser } from "@/lib/current-user";
 import { getQueryClient } from "@/lib/query-client";
 import { userNotesQueryOptions } from "@/lib/queries/notes";
 import { NotesList } from "@/components/Notes/notes-list";
+import { PageHeader, PageShell, SignedOutGate } from "@/components/ui/page";
+import { SkeletonRows } from "@/components/ui/feedback";
+import { QueryBoundary } from "@/components/ui/query-boundary";
+
+export const metadata = { title: "Notes" };
 
 export default async function NotesPage() {
   const user = await getCurrentUser();
 
   if (!user) {
     return (
-      <main className="mx-auto flex max-w-5xl flex-col gap-4 p-8">
-        <h1 className="text-2xl font-semibold">Notes</h1>
-        <p className="opacity-70">Sign in to see your notes.</p>
-        <SignInButton />
-      </main>
+      <SignedOutGate
+        title="Notes"
+        body="Write down the trick while it is still fresh. Notes are filed against the problem, so they are waiting for you the next time you open it."
+      />
     );
   }
 
@@ -23,14 +25,17 @@ export default async function NotesPage() {
   await queryClient.query(userNotesQueryOptions(1));
 
   return (
-    <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-      <h1 className="text-2xl font-semibold">Notes</h1>
+    <PageShell width="reading">
+      <PageHeader
+        title="Notes"
+        description="Everything you have written down, newest first."
+      />
 
       <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense fallback={<p className="opacity-70">Loading notes…</p>}>
+        <QueryBoundary label="Your notes" fallback={<SkeletonRows rows={4} />}>
           <NotesList />
-        </Suspense>
+        </QueryBoundary>
       </HydrationBoundary>
-    </main>
+    </PageShell>
   );
 }

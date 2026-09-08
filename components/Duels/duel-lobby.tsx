@@ -1,20 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { Sword, SignIn } from "@phosphor-icons/react";
 import {
   useCreateDuel,
   useCreateDuelFromUrl,
   useJoinDuel,
 } from "@/hooks/use-duels";
+import { Button } from "@/components/ui/button";
+import { Panel } from "@/components/ui/surface";
+import { Field, inputStyles } from "@/components/ui/field";
+import { ErrorNote } from "@/components/ui/feedback";
 
 type ProblemOption = { id: string; title: string };
 
-const inputClass =
-  "rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20";
-
 export function DuelLobby({ problems }: { problems: ProblemOption[] }) {
   // With an empty catalogue the picker has nothing to show, so a URL is the
-  // only way in — start there rather than on a dead end.
+  // only way in: start there rather than on a dead end.
   const [mode, setMode] = useState<"existing" | "url">(
     problems.length > 0 ? "existing" : "url"
   );
@@ -30,57 +32,69 @@ export function DuelLobby({ problems }: { problems: ProblemOption[] }) {
   const createError = create.error ?? createFromUrl.error;
 
   const tabClass = (active: boolean) =>
-    `rounded-md px-3 py-1.5 text-sm ${
+    `rounded-control px-3 py-1.5 text-sm transition-colors duration-200 ${
       active
-        ? "bg-black/5 font-medium dark:bg-white/10"
-        : "opacity-60 hover:opacity-100"
+        ? "bg-accent-wash font-medium text-accent"
+        : "text-muted hover:bg-surface-sunken hover:text-foreground"
     }`;
 
   return (
-    <div className="flex flex-col gap-10">
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold">Start a duel</h2>
+    <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+      <Panel className="flex flex-col gap-5 p-6 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold">Host a duel</h2>
 
-        <div className="flex gap-1">
-          <button
-            type="button"
-            className={tabClass(mode === "existing")}
-            onClick={() => setMode("existing")}
-            disabled={problems.length === 0}
+          <div
+            role="tablist"
+            aria-label="How to pick the problem"
+            className="flex gap-1"
           >
-            Your problems
-          </button>
-          <button
-            type="button"
-            className={tabClass(mode === "url")}
-            onClick={() => setMode("url")}
-          >
-            Paste a URL
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "existing"}
+              className={tabClass(mode === "existing")}
+              onClick={() => setMode("existing")}
+              disabled={problems.length === 0}
+            >
+              From your library
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "url"}
+              className={tabClass(mode === "url")}
+              onClick={() => setMode("url")}
+            >
+              Paste a link
+            </button>
+          </div>
         </div>
 
         {mode === "existing" ? (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <select
-              value={problemId}
-              onChange={(event) => setProblemId(event.target.value)}
-              className={`flex-1 ${inputClass}`}
-            >
-              {problems.map((problem) => (
-                <option key={problem.id} value={problem.id}>
-                  {problem.title}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+            <Field label="Problem" htmlFor="duel-problem" className="flex-1">
+              <select
+                id="duel-problem"
+                value={problemId}
+                onChange={(event) => setProblemId(event.target.value)}
+                className={inputStyles}
+              >
+                {problems.map((problem) => (
+                  <option key={problem.id} value={problem.id}>
+                    {problem.title}
+                  </option>
+                ))}
+              </select>
+            </Field>
 
-            <button
-              type="button"
+            <Button
               disabled={!problemId || creating}
               onClick={() => create.mutate(problemId)}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
             >
-              {creating ? "Creating…" : "Create duel"}
-            </button>
+              <Sword size={16} weight="bold" />
+              {creating ? "Creating" : "Create duel"}
+            </Button>
           </div>
         ) : (
           <form
@@ -88,40 +102,34 @@ export function DuelLobby({ problems }: { problems: ProblemOption[] }) {
               event.preventDefault();
               createFromUrl.mutate(url);
             }}
-            className="flex flex-col gap-3 sm:flex-row"
+            className="flex flex-col gap-4 sm:flex-row sm:items-end"
           >
-            <input
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://leetcode.com/problems/two-sum/"
-              aria-label="Problem URL to race on"
-              className={`flex-1 ${inputClass}`}
-            />
-            <button
-              type="submit"
-              disabled={!url.trim() || creating}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+            <Field
+              label="Problem link"
+              htmlFor="duel-url"
+              hint="It is added to your library too, so its times are tracked like any other."
+              className="flex-1"
             >
-              {creating ? "Creating…" : "Create duel"}
-            </button>
+              <input
+                id="duel-url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://leetcode.com/problems/two-sum/"
+                className={inputStyles}
+              />
+            </Field>
+
+            <Button type="submit" disabled={!url.trim() || creating}>
+              <Sword size={16} weight="bold" />
+              {creating ? "Creating" : "Create duel"}
+            </Button>
           </form>
         )}
 
-        {createError ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {createError.message}
-          </p>
-        ) : null}
+        {createError && <ErrorNote>{createError.message}</ErrorNote>}
+      </Panel>
 
-        {mode === "url" ? (
-          <p className="text-xs opacity-60">
-            The problem is added to your library too, so its attempts and times
-            are tracked like any other.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="flex flex-col gap-3">
+      <Panel className="flex flex-col gap-5 p-6 sm:p-7">
         <h2 className="text-xl font-semibold">Join a duel</h2>
 
         <form
@@ -129,31 +137,40 @@ export function DuelLobby({ problems }: { problems: ProblemOption[] }) {
             event.preventDefault();
             join.mutate(code);
           }}
-          className="flex flex-col gap-3 sm:flex-row"
+          className="flex flex-col gap-4"
         >
-          <input
-            value={code}
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
-            placeholder="K7M2QP"
-            maxLength={6}
-            aria-label="Duel join code"
-            className={`w-40 font-mono tracking-[0.2em] ${inputClass}`}
-          />
-          <button
-            type="submit"
-            disabled={code.length < 6 || join.isPending}
-            className="w-fit rounded-md border border-black/15 px-4 py-2 text-sm font-medium hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10"
+          <Field
+            label="Join code"
+            htmlFor="duel-code"
+            hint="Six characters, from whoever is hosting."
           >
-            {join.isPending ? "Joining…" : "Join"}
-          </button>
+            <input
+              id="duel-code"
+              value={code}
+              onChange={(event) => setCode(event.target.value.toUpperCase())}
+              placeholder="K7M2QP"
+              maxLength={6}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
+              data-numeric
+              className={`${inputStyles} w-44 text-center font-mono text-lg tracking-[0.3em]`}
+            />
+          </Field>
+
+          <Button
+            type="submit"
+            variant="secondary"
+            className="w-fit"
+            disabled={code.length < 6 || join.isPending}
+          >
+            <SignIn size={16} weight="bold" />
+            {join.isPending ? "Joining" : "Join"}
+          </Button>
         </form>
 
-        {join.isError ? (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {join.error.message}
-          </p>
-        ) : null}
-      </section>
+        {join.isError && <ErrorNote>{join.error.message}</ErrorNote>}
+      </Panel>
     </div>
   );
 }

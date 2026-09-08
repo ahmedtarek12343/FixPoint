@@ -18,10 +18,19 @@ export type AttemptDto = {
 
 export type ProblemDetail = {
   id: string;
+  /** This user's name for it, falling back to the platform's. */
   title: string;
+  /** The platform's own title, shown when the user has renamed it. */
+  platformTitle: string;
   url: string;
   source: string;
+  /** Source enum, or the custom site's name. */
+  platform: string;
+  platformLabel: string | null;
+  /** The platform's rating. Null for custom problems until the user rates one. */
   difficulty: string | null;
+  /** This user's own rating, which is a separate fact from the one above. */
+  yourDifficulty: string | null;
   tags: string[];
   activeAttempt: AttemptDto | null;
   attempts: AttemptDto[];
@@ -54,7 +63,15 @@ export async function getProblemDetail(
 
   const problem = await prisma.problem.findUnique({
     where: { id: problemId },
-    include: { problemTags: { include: { tag: true } } },
+    include: {
+      problemTags: { include: { tag: true } },
+      // Filtered to this user: the row carries their private rating, and an
+      // unfiltered include would ship everyone else's opinions to the client.
+      inLibraries: {
+        where: { userId: user.id },
+        select: { perceivedDifficulty: true, customTitle: true },
+      },
+    },
   });
   if (!problem) return null;
 
@@ -70,10 +87,17 @@ export async function getProblemDetail(
 
   return {
     id: problem.id,
-    title: problem.title,
+    title: problem.inLibraries[0]?.customTitle ?? problem.title,
+    platformTitle: problem.title,
     url: problem.url,
     source: problem.source,
+    platform:
+      problem.source === "CUSTOM"
+        ? (problem.platformLabel ?? "Other")
+        : problem.source,
+    platformLabel: problem.platformLabel,
     difficulty: problem.difficulty,
+    yourDifficulty: problem.inLibraries[0]?.perceivedDifficulty ?? null,
     tags: problem.problemTags.map((problemTag) => problemTag.tag.name),
     activeAttempt:
       attempts.map(toDto).find((a) => a.status === AttemptStatus.IN_PROGRESS) ??
