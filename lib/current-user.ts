@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { auth, currentUser as clerkCurrentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit, writeLimiter } from "@/lib/rate-limit";
+import { sweepStaleAttemptsIfDue } from "@/lib/data/attempts";
 
 /**
  * Resolves the Clerk session to our own User row.
@@ -12,6 +14,12 @@ import { enforceRateLimit, writeLimiter } from "@/lib/rate-limit";
 export async function getCurrentUser() {
   const { userId: clerkId } = await auth();
   if (!clerkId) return null;
+
+  // Closes abandoned attempts, at most once every few minutes across the whole
+  // deployment. Every authenticated entry point passes through here, and
+  // `after` defers it until the response has been sent, so it costs the user
+  // nothing. See sweepStaleAttemptsIfDue for why this beats a daily cron.
+  after(sweepStaleAttemptsIfDue);
 
   const existing = await prisma.user.findUnique({ where: { clerkId } });
   if (existing) return existing;
