@@ -1,5 +1,4 @@
-# leeeto
-
+# FixPoint
 A practice tracker for LeetCode and Codeforces. Start a problem here, it opens
 on the real site with a clock running, and every attempt is recorded with its
 duration, outcome and topics.
